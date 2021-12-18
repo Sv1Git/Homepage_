@@ -9,93 +9,109 @@ const SECURITY_HEADERS = {
 
 const rootElement = document.getElementById('root');
 const loadingElement = document.getElementById('loading-overlay');
-const fightersDetailsMap = new Map();
 
-element.addEventListener('click', (event) => handleFighterClick(event, fighter), false)
+function callApi(endpoint, method = 'GET') {
+    const url = BASE_API_URL + endpoint;
+    const options = { method, ...SECURITY_HEADERS };
+  
+    return fetch(url, options)
+      .then(response =>
+        response.ok
+          ? response.json()
+          : Promise.reject(Error('Failed to load'))
+      )
+       .catch(error => { throw error });
+  }
 
- async function startApp() {
-    async function startApp() {
-        try {
-          loadingElement.style.visibility = 'visible';
+      class FighterService {
+        #endpoint = 'repos/oleksandr-danylchenko/street-fighter/contents/resources/api/fighters.json'
+       
+        async getFighters() {
+          try {
+            const apiResult = await callApi(this.#endpoint, 'GET');
+            return JSON.parse(atob(apiResult.content));
+          } catch (error) {
+            throw error;
+          }
+        }
+       }
+
+
+       const fighterService = new FighterService();
+
+
+
+       class View {
+        element;
+        createElement({ tagName, className = '', attributes = {} }) {
+          const element = document.createElement(tagName);
+          element.classList.add(className);
+          
+          Object.keys(attributes).forEach(key => element.setAttribute(key, attributes[key]));
       
-          const endpoint = 'repos/oleksandr-danylchenko/street-fighter/contents/resources/api/fighters.json';
-          const fighters = await callApi(endpoint);
+          return element;
+        }
+        get element() {
+            return this.element;
+          }
+          
+          set element(value) {
+            this.element = value;
+          }
+
+      }
+
+           
+      class FightersView extends View {
+        constructor(fighters) {
+          super();
       
-          rootElement.innerText = getFightersNames(fighters);
-        } catch (error) {
-          console.warn(error);
-          rootElement.innerText = 'Failed to load data';
-        } finally {
-          loadingElement.style.visibility = 'hidden';
+          this.handleClick = this.handleFighterClick.bind(this);
+          this.createFighters(fighters);
+        }
+      
+        createFighters(fighters) {
+          const fighterElements = fighters.map(fighter => {
+      
+            // 1. Class function with context
+            const fighterView = new FighterView(fighter, this.handleClick);
+
+            return fighterView.element;
+          });
+      
+          // ...
+  
+          this.element = this.createElement({ tagName: 'div', className: 'fighters' });
+          this.element.append(...fighterElements);
+        }
+      
+        handleFighterClick(event, fighter) {
+          this.fightersDetailsMap.set(fighter._id, fighter);
+          console.log('clicked')
+          // get from map or load info and add to fightersMap
+          // show modal with fighter info
+          // allow to edit health and power in this modal
+        }
+      }
+      class App {
+        static rootElement = document.getElementById('root');
+        static loadingElement = document.getElementById('loading-overlay');
+      
+        static async startApp() {
+          try {
+            App.loadingElement.style.visibility = 'visible';
+      
+            const fighters = await fighterService.getFighters();
+            const fightersView = new FightersView(fighters);
+      
+            App.rootElement.appendChild(fightersView.element);
+          } catch (error) {
+            console.warn(error);
+            App.rootElement.innerText = 'Failed to load data';
+          } finally {
+            App.loadingElement.style.visibility = 'hidden';
+          }
         }
       }
       
-      function callApi(endpoint, method = 'GET') {
-        const url = BASE_API_URL + endpoint;
-        const options = { method, ...SECURITY_HEADERS };
-      
-        return fetch(url, options)
-          .then(response =>
-            response.ok
-              ? response.json()
-              : Promise.reject(Error('Failed to load'))
-          )
-          .then(file => JSON.parse(atob(file.content)))
-          .catch(error => { throw error });
-      }
-
-      function createElement({ tagName, className = '', attributes = {} }) {
-        const element = document.createElement(tagName);
-        element.classList.add(className);
-          
-        Object
-          .keys(attributes)
-          .forEach(key => element.setAttribute(key, attributes[key]));
-      
-        return element;
-      }
-
-  function createName(name) {
-    const nameElement = createElement({ tagName: 'span', className: 'name' });
-    nameElement.innerText = name;
-  
-    return nameElement;
-  }
-  
-  function createImage(source) {
-    const attributes = { src: source };
-    const imgElement = createElement({
-      tagName: 'img',
-      className: 'fighter-image',
-      attributes
-    });
-  
-    return imgElement;
-  }
-  function createFighter(fighter) {
-    const { name, source } = fighter;
-    const nameElement = createName(name);
-    const imageElement = createImage(source);
-    const element = createElement({ tagName: 'div', className: 'fighter' });
-  
-    element.append(imageElement, nameElement);
-    
-    element.addEventListener('click', (event) => handleFighterClick(event, 'wrapper'), false)
-    imageElement.addEventListener('click', (event) => handleFighterClick(event, 'image'), false)
-    
-    function handleFighterClick(event, el) {
-      console.log(el);
-    }
-    return element;
-  }
-  function createFighters(fighters) {
-    const fighterElements = fighters.map(fighter => createFighter(fighter));
-    const element = createElement({ tagName: 'div', className: 'fighters' });
-  
-    element.append(...fighterElements);
-  
-    return element;
-  };
- }
-
-startApp();
+      App.startApp();
